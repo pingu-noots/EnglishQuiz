@@ -11,9 +11,9 @@ from polyglot.text import Text
 from botocore.exceptions import ClientError
 import requests
 from bs4 import BeautifulSoup
-
+import lxml
 # for debug
-import pprint
+# import pprint
 
 from nltk.tokenize import word_tokenize
 from nltk import pos_tag
@@ -31,6 +31,7 @@ class EnglishQuiz(object):
         self.s3 = boto3.resource('s3').Bucket(BUCKET)
         self.job_name = uuid.uuid4().hex
         self.voice_file = voice_file
+        self.count_word = 0
 
     def upload(self): # 多分これいらん。。。initに置く？labmda?画面側のjs？
         # TODO 方針決める
@@ -70,6 +71,7 @@ class EnglishQuiz(object):
 
     def translate(self):
         while_period = []
+        word_in_line = 0
         with open('/tmp/'+self.job_name+'.json') as f:
             jsn = json.load(f)
             before_str = jsn['results']['transcripts'][0]['transcript']
@@ -77,11 +79,12 @@ class EnglishQuiz(object):
             trns = translator.translate(before_str, dest='en').text
             # 分かち書き
             part = word_tokenize(trns)
-            # 品詞タグ付与
+            # トークン化したものに品詞タグ付与
             pos = pos_tag(part)
             # tokens = Text(trns) polyglotの場合
             # 単語ごとにループ
             for token in pos:
+                word_in_line += 1
                 lang_info = []
                 level = self.lang_level(token[0], token[1])
                 lang_info.append(token[0])
@@ -93,6 +96,9 @@ class EnglishQuiz(object):
                 if token[0] == '.':
                     self.lang_parts.append(while_period)
                     while_period = []
+                    self.count_word = word_in_line
+                    word_in_line = 0
+                    
 
 
     def lang_level(self, word, pos):
@@ -103,7 +109,7 @@ class EnglishQuiz(object):
         weblio_url = 'http://ejje.weblio.jp/content'
         target_url = os.path.join(weblio_url, lemma_word)
         r = requests.get(target_url)         #requestsを使って、webから取得
-        soup = BeautifulSoup(r.text, "html.parser")
+        soup = BeautifulSoup(r.text, 'lxml')
         try:
             level = soup.find('span', class_='learning-level-content').text
         except:
