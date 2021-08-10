@@ -68,7 +68,10 @@ class EnglishQuiz(object):
         # else:
             # print('???????????')
         self.s3.Object(bucket_name='aws-transcript-s3', key='en_dir/'+self.job_name+'.json').download_file('/tmp/'+self.job_name+'.json')
-
+    
+    # 単語ごとにループ回して配列に突っ込む
+    # トークン化と品詞付与
+    # 文内の単語数はself.count_word
     def translate(self):
         while_period = []
         word_in_line = 0
@@ -102,10 +105,15 @@ class EnglishQuiz(object):
 
 
     def lang_level(self, word, pos):
+        # 単語じゃない要素ははじく
+        # でももっと弾かないといけないものあるよね
         if word == '.' or word == '-' or word == ',':
             return 0
+        # レンマ化のための機能
         wnl = WNL()
         lemma_word = wnl.lemmatize(word)
+        # weblioから単語レベルとってくる
+        # 本番はDBにSVL12000を登録してとってくる
         weblio_url = 'http://ejje.weblio.jp/content'
         target_url = os.path.join(weblio_url, lemma_word)
         r = requests.get(target_url)         #requestsを使って、webから取得
